@@ -4,10 +4,10 @@ This document provides an overview of the key94187 keypads that come with no ele
 
 ## Naming Conventions
 
-We shall refer to the various connectors and pins in the following fashion:
+We shall refer to the various connectors and pins in the following fashion, with the origin is the top left when looking from the back, with the header on the bottom.:
 
 - Large connectors that come in top/bottom pairs shall be referred to by their labe + "top" and "bottom", so for instance the Hook connectors shall be Hook Top and Hook Bottom
-- Pins in the ribbon cable connector shall be referred to as "Ribbon[<row>,<col>]", so for instance the pin on the first row third column will be Ribbon[1,3]
+- Pins in the ribbon cable connector shall be referred to as "Ribbon[<row>,<col>]", so for instance the pin on the first row third column will be Ribbon[1,3].
 - Pins on the bottom labeled J2 will be numbered left to right from 1 to 7, and referred to as "J2[<pin number>]", so for instance the third pin will be "J2[3]"
 
 ## Backplate Connectivity
