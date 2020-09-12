@@ -1,5 +1,8 @@
 import RPi.GPIO as GPIO
+import threading
 import time
+
+import tonegenerator as tg
 
 
 class Keypad:
@@ -14,7 +17,7 @@ class Keypad:
     ROWS = [12, 16, 18, 22]
 
     def __init__(self):
-        self.callback = None
+        self.tone_mode = 'normal'
         self.keypad_history = {
             '1': 10 * [0],
             '2': 10 * [0],
@@ -43,6 +46,7 @@ class Keypad:
             '0': False,
             '#': False
         }
+        self.callback = None
 
         # GPIO init
         GPIO.setmode(GPIO.BOARD)
@@ -52,8 +56,21 @@ class Keypad:
 
         GPIO.output(Keypad.ROWS, GPIO.LOW)
 
-    def set_callback(self, callback):
-        self.callback = callback
+        # Tone Generator
+
+        self.tone_generator = tg.ToneGenerator()
+        self.tone_generator.start()
+
+    def set_tone_mode(self, new_mode):
+        if new_mode in ['normal', 'deusex']:
+            self.tone_mode = new_mode
+
+    def has_pressed(self):
+        for key in self.keypad_state:
+            if self.keypad_state[key]:
+                return True
+
+        return False
 
     def read_keypad(self):
         for row in range(len(Keypad.ROWS)):
@@ -81,13 +98,71 @@ class Keypad:
     def key_sample_count(self, key):
         return sum(self.keypad_history[key][-10:])
 
-    def polling_loop(self):
-        while True:
-            self.read_keypad()
-            delta = self.compute_keypad_delta()
-            # print(self.keypad_history['1'])
-            for key in delta:
-                self.keypad_state[key] = delta[key] == 'key_down'
-                if self.callback is not None:
-                    self.callback(key, delta[key])
-            time.sleep(0.001)
+    def start(self):
+        def daemon():
+            while True:
+                self.read_keypad()
+                delta = self.compute_keypad_delta()
+                for key in delta:
+                    self.handle(key, delta[key])
+
+                if len(delta) > 0:
+                    self.play_tones(
+                        [key for key in self.keypad_state if self.keypad_state[key]])
+                time.sleep(0.001)
+
+        thread = threading.Thread(target=daemon)
+        thread.daemon = True
+        thread.start()
+
+    def set_callback(self, callback):
+        self.callback = callback
+
+    def handle(self, key, event):
+        self.keypad_state[key] = event == 'key_down'
+        if self.callback is not None:
+            self.callback(key, event)
+
+    deusex_remap = {
+        '1': '9',
+        '2': '6',
+        '3': '5',
+        '4': '7',
+        '5': '1',
+        '6': '5',
+        '7': '3',
+        '8': '6',
+        '9': '1',
+        '*': '8',
+        '0': '4',
+        '#': '5'
+    }
+
+    def play_tones(self, keys):
+        tones = []
+
+        if self.tone_mode == 'normal':
+            for key in self.keypad_state:
+                if self.keypad_state[key]:
+                    tones += tg.ToneGenerator.dtmf_key(key)
+
+        elif self.tone_mode == 'deusex':
+            for key in self.keypad_state:
+                if self.keypad_state[key]:
+                    tones += tg.ToneGenerator.dtmf_key(
+                        Keypad.deusex_remap[key])
+
+        self.tone_generator.set_tones(list(set(tones)))
+
+
+if __name__ == '__main__':
+    keypad = Keypad()
+    keypad.start()
+    keypad.set_tone_mode('deusex')
+
+    def cb(key, event):
+        print([key for key in keypad.keypad_state if keypad.keypad_state[key]])
+    keypad.set_callback(cb)
+    while True:
+        print('tick')
+        time.sleep(10)
